@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "seq2bdv"
+version = "0.1.0"
+description = ""
+authors = ["Ko Sugawara <ko.sugawara@ens-lyon.fr>"]
+readme = "README.md"
+packages = [{include = "seq2bdv", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+h5py = "^3.8.0"
+imageio = "^2.28.1"
+tqdm = "^4.65.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.13.2"
+black = "^23.3.0"
+flake8 = "^6.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
