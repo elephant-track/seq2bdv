@@ -58,6 +58,7 @@ def suggest_pot_block_size(
     num_bits = [math.log(m * shape[d]) / math.log(2) for d in range(ndim)]
     int_num_bits = [max(0, int(num_bits[d])) for d in range(ndim)]
     if size is not None:
+        print(f"size: {size}")
         full_size_bits = [
             max(0, int(math.log(size[d] - 1) / math.log(2)) + 1) for d in range(ndim)
         ]
@@ -99,7 +100,11 @@ def propose_mipmaps(
         for d in range(ndim):
             size[d] = max(1, size[d] // res[d])
             max_size = max(max_size, size[d])
-        subdivision = suggest_pot_block_size(voxelscale, size, MAX_NUM_ELEMENTS)
+        subdivision = [
+            128,
+            128,
+            1,
+        ]  # suggest_pot_block_size(voxelscale, size, MAX_NUM_ELEMENTS)
         if ndim == 2:
             subdivision.append(1)
         subdivisions.append(tuple(subdivision))
@@ -129,15 +134,17 @@ def main(
     voxelsize: Union[Tuple[float, float], Tuple[float, float, float]],
     first_timepoint: int = 0,
     extention: str = "tif",
+    num_z=1,
 ):
     input = Path(input)
     output = Path(output)
     if not input.is_dir():
         raise ValueError("input needs to be a directory")
 
-    files = list(input.glob(f"*.{extention}"))
+    files = list(sorted(input.glob(f"*z00.{extention}")))
     last_timepoint = first_timepoint + len(files) - 1
-    shape = iio.imread(files[0]).shape[::-1]
+    shape = iio.imread(files[0]).shape[::-1] + (num_z,)
+    print(f"shape: {shape}")
     resolutions, subdivisions = propose_mipmaps(shape, voxelsize)
     ndim = len(voxelsize)
     if ndim == 2:
@@ -218,7 +225,13 @@ def main(
             data=subdivisions,
         )
         for timepoint in tqdm(range(first_timepoint, last_timepoint + 1)):
-            img = iio.imread(files[timepoint - first_timepoint])
+            filename_z00 = str(files[timepoint - first_timepoint])
+            img = np.array(
+                [
+                    iio.imread(filename_z00.replace("z00", f"z{z:02d}"))
+                    for z in range(num_z)
+                ]
+            )
             if img.ndim != ndim:
                 raise RuntimeError(
                     f"{ndim}d image dim is expected, but got {img.ndim}d data."
@@ -290,7 +303,22 @@ if __name__ == "__main__":
         default="tif",
         help="file extention (e.g. jpg, png, tif, default: tif)",
     )
+    parser.add_argument(
+        "--num_z",
+        type=int,
+        required=False,
+        default="1",
+        help="number of z slices (default: 1)",
+    )
 
     args = parser.parse_args()
 
-    main(args.input, args.output, args.unit, args.voxelsize, args.first, args.extention)
+    main(
+        args.input,
+        args.output,
+        args.unit,
+        args.voxelsize,
+        args.first,
+        args.extention,
+        args.num_z,
+    )
