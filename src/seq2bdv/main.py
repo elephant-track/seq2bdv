@@ -101,8 +101,8 @@ def propose_mipmaps(
             size[d] = max(1, size[d] // res[d])
             max_size = max(max_size, size[d])
         subdivision = [
-            128,
-            128,
+            min(size[0], 128),
+            min(size[1], 128),
             1,
         ]  # suggest_pot_block_size(voxelscale, size, MAX_NUM_ELEMENTS)
         if ndim == 2:
@@ -133,15 +133,16 @@ def main(
     unit: str,
     voxelsize: Union[Tuple[float, float], Tuple[float, float, float]],
     first_timepoint: int = 0,
-    extention: str = "tif",
-    num_z=1,
+    extension: str = "tif",
+    num_z: int = 1,
+    scale: float = 1.0,
 ):
     input = Path(input)
     output = Path(output)
     if not input.is_dir():
         raise ValueError("input needs to be a directory")
 
-    files = list(sorted(input.glob(f"*z00.{extention}")))
+    files = list(sorted(input.glob(f"*z00.{extension}")))
     last_timepoint = first_timepoint + len(files) - 1
     shape = iio.imread(files[0]).shape[::-1] + (num_z,)
     print(f"shape: {shape}")
@@ -150,6 +151,7 @@ def main(
     if ndim == 2:
         voxelsize = tuple(list(voxelsize) + [1])
 
+    output.parent.mkdir(parents=True, exist_ok=True)
     output_h5 = str(output.parent / output.stem) + ".h5"
     output_xml = str(output.parent / output.stem) + ".xml"
     elem_spimdata = ET.Element("SpimData", {"version": "0.2"})
@@ -228,7 +230,9 @@ def main(
             filename_z00 = str(files[timepoint - first_timepoint])
             img = np.array(
                 [
-                    iio.imread(filename_z00.replace("z00", f"z{z:02d}"))
+                    (
+                        iio.imread(filename_z00.replace("z00", f"z{z:02d}")) * scale
+                    ).astype("uint16")
                     for z in range(num_z)
                 ]
             )
@@ -297,11 +301,11 @@ if __name__ == "__main__":
         help="first timepoint",
     )
     parser.add_argument(
-        "--extention",
+        "--extension",
         type=str,
         required=False,
         default="tif",
-        help="file extention (e.g. jpg, png, tif, default: tif)",
+        help="file extension (e.g. jpg, png, tif, default: tif)",
     )
     parser.add_argument(
         "--num_z",
@@ -309,6 +313,13 @@ if __name__ == "__main__":
         required=False,
         default="1",
         help="number of z slices (default: 1)",
+    )
+    parser.add_argument(
+        "--scale",
+        type=float,
+        required=False,
+        default=1.0,
+        help="scale for the pixel value (default: 1.0)",
     )
 
     args = parser.parse_args()
@@ -319,6 +330,7 @@ if __name__ == "__main__":
         args.unit,
         args.voxelsize,
         args.first,
-        args.extention,
+        args.extension,
         args.num_z,
+        args.scale,
     )
