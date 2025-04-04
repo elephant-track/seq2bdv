@@ -75,7 +75,7 @@ def suggest_pot_block_size(
                 max_diff_dim = d
         int_num_bits[max_diff_dim] += 1
         sum_int_num_bits += 1
-    block_size = [1 << int_num_bits[d] for d in range(ndim)]
+    block_size = [min(size[d], 1 << int_num_bits[d]) for d in range(ndim)]
     return block_size
 
 
@@ -135,7 +135,7 @@ def main(
     if not input.is_dir():
         raise ValueError("input needs to be a directory")
 
-    files = list(input.glob(f"*.{extention}"))
+    files = list(sorted(input.glob(f"*.{extention}")))
     last_timepoint = first_timepoint + len(files) - 1
     shape = iio.imread(files[0]).shape[::-1]
     resolutions, subdivisions = propose_mipmaps(shape, voxelsize)
@@ -143,6 +143,7 @@ def main(
     if ndim == 2:
         voxelsize = tuple(list(voxelsize) + [1])
 
+    output.parent.mkdir(parents=True, exist_ok=True)
     output_h5 = str(output.parent / output.stem) + ".h5"
     output_xml = str(output.parent / output.stem) + ".xml"
     elem_spimdata = ET.Element("SpimData", {"version": "0.2"})
